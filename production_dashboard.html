@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanPro - Production Planning</title>
+    
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    
+    <!-- Professional Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==========================================================================
+           1. DESIGN SYSTEM & CSS VARIABLES
+           ========================================================================== */
+        :root {
+            /* Core Colors */
+            --primary: #3b82f6; --primary-glow: rgba(59, 130, 246, 0.4);
+            --success: #10b981; --success-glow: rgba(16, 185, 129, 0.4);
+            --warning: #f59e0b; --warning-glow: rgba(245, 158, 11, 0.4);
+            --danger:  #ef4444; --danger-glow:  rgba(239, 68, 68, 0.4);
+            --purple:  #8b5cf6; --purple-glow:  rgba(139, 92, 246, 0.4);
+
+            /* Typography */
+            --font-ui: 'Inter', sans-serif;
+            --font-display: 'Plus Jakarta Sans', sans-serif;
+            --font-data: 'Space Grotesk', monospace;
+
+            /* Spacing */
+            --s-1: 8px; --s-2: 16px; --s-3: 24px; --s-4: 32px;
+            
+            /* Transitions */
+            --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            --transition-smooth: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        [data-theme="dark"] {
+            --bg-app: #030712;
+            --bg-surface: rgba(17, 24, 39, 0.6);
+            --bg-surface-hover: rgba(31, 41, 55, 0.8);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(255, 255, 255, 0.2);
+            --text-1: #f9fafb; --text-2: #9ca3af; --text-3: #6b7280;
+            --shadow-float: 0 20px 40px rgba(0,0,0,0.4);
+            --mouse-glow: rgba(255, 255, 255, 0.04);
+            --glass-blur: blur(24px);
+            --chart-grid: rgba(255, 255, 255, 0.05);
+            --chart-text: #94a3b8;
+        }
+
+        [data-theme="light"] {
+            --bg-app: #f8fafc;
+            --bg-surface: rgba(255, 255, 255, 0.7);
+            --bg-surface-hover: rgba(255, 255, 255, 1);
+            --border-color: rgba(15, 23, 42, 0.08);
+            --border-highlight: rgba(15, 23, 42, 0.15);
+            --text-1: #0f172a; --text-2: #475569; --text-3: #94a3b8;
+            --shadow-float: 0 20px 40px rgba(0,0,0,0.06);
+            --mouse-glow: rgba(0, 0, 0, 0.02);
+            --glass-blur: blur(24px);
+            --chart-grid: rgba(15, 23, 42, 0.05);
+            --chart-text: #475569;
+        }
+
+        /* ==========================================================================
+           2. GLOBAL RESET & BASE
+           ========================================================================== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow: hidden; }
+        body {
+            font-family: var(--font-ui); background-color: var(--bg-app); color: var(--text-1);
+            transition: background 0.4s ease, color 0.4s ease; -webkit-font-smoothing: antialiased;
+            background-image: radial-gradient(circle at 0% 0%, var(--primary-glow) 0%, transparent 40%),
+                              radial-gradient(circle at 100% 100%, var(--purple-glow) 0%, transparent 40%);
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+        /* ==========================================================================
+           3. APPLICATION LAYOUT
+           ========================================================================== */
+        .app-shell { display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden; }
+        
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        /* ==========================================================================
+           4. TOP NAVIGATION
+           ========================================================================== */
+        .navbar {
+            height: 80px; padding: 0 var(--s-4); display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border-color); background: rgba(3,7,18,0.4);
+            backdrop-filter: blur(12px); z-index: 50;
+        }
+        .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text-2); }
+        .breadcrumb .current { color: var(--text-1); font-weight: 600; background: var(--bg-surface); padding: 4px 12px; border-radius: 100px; border: 1px solid var(--border-color); }
+        
+        .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: transparent; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; color: var(--text-2); cursor: pointer; transition: var(--transition-fast); }
+        .icon-btn:hover { background: var(--bg-surface); border-color: var(--border-color); color: var(--text-1); transform: translateY(-2px); }
+
+        /* ==========================================================================
+           5. DASHBOARD GRID & GLASS PANELS
+           ========================================================================== */
+        .scroll-area { flex: 1; overflow-y: auto; overflow-x: hidden; padding-bottom: var(--s-6); }
+        .dashboard-container { padding: var(--s-4); max-width: 1800px; margin: 0 auto; display: grid; grid-template-columns: 1fr 360px; gap: var(--s-4); }
+        @media (max-width: 1400px) { .dashboard-container { grid-template-columns: 1fr; } }
+        
+        .main-col { display: flex; flex-direction: column; gap: var(--s-4); }
+        .right-col { display: flex; flex-direction: column; gap: var(--s-3); }
+
+        .glass-panel {
+            background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 24px;
+            backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+            padding: var(--s-3); position: relative; overflow: hidden; display: flex; flex-direction: column;
+            transition: transform var(--transition-smooth), box-shadow var(--transition-smooth), border-color var(--transition-fast);
+        }
+        .glass-panel::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(800px circle at var(--mouse-x, 0) var(--mouse-y, 0), var(--mouse-glow), transparent 40%);
+            opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 0;
+        }
+        .glass-panel:hover::before { opacity: 1; }
+        .glass-panel:hover { border-color: var(--border-highlight); transform: translateY(-4px); box-shadow: var(--shadow-float); }
+        
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-3); position: relative; z-index: 1; }
+        .panel-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        /* ==========================================================================
+           6. EXECUTIVE KPIs & MODULES
+           ========================================================================== */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--s-3); }
+        .kpi-card { padding: 24px; z-index: 1; }
+        .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+        .kpi-label { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-family: var(--font-data); font-size: 40px; font-weight: 700; line-height: 1; margin-bottom: 12px; color: var(--text-1); }
+        
+        /* ==========================================================================
+           7. CHART FIXES
+           ========================================================================== */
+        .chart-grid { display: grid; grid-template-columns: 5fr 4fr; gap: var(--s-3); }
+        @media (max-width: 1000px) { .chart-grid { grid-template-columns: 1fr; } }
+        
+        .chart-wrapper {
+            position: relative; width: 100%; flex: 1 1 auto; min-height: 250px; 
+            display: flex; flex-direction: column; z-index: 1;
+        }
+        .chart-wrapper > div { flex: 1 1 auto; width: 100% !important; display: flex; flex-direction: column; }
+        .plotly-graph-div { flex: 1 1 auto; width: 100% !important; height: 100% !important; }
+        
+        /* Light mode filter hack for python-generated dark charts */
+        html[data-theme="light"] .plotly-graph-div { filter: invert(1) hue-rotate(180deg) brightness(1.1); }
+
+        /* ==========================================================================
+           8. TIMELINE & RIGHT PANEL
+           ========================================================================== */
+        .v-timeline { position: relative; padding-left: 24px; margin-top: 16px; z-index: 1; }
+        .v-timeline::before { content: ''; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 2px; background: var(--border-color); }
+        .tl-node { position: relative; margin-bottom: 24px; }
+        .tl-dot { position: absolute; left: -24px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--bg-app); border: 2px solid var(--border-color); transition: var(--transition-fast); }
+        .tl-node:hover .tl-dot { transform: scale(1.3); }
+        
+        .ai-card { background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; gap: 12px; cursor: pointer; transition: transform var(--transition-fast); z-index: 1; }
+        .ai-card:hover { transform: translateX(4px); border-color: var(--purple); }
+
+        .btn-premium { background: var(--text-1); color: var(--bg-app); border: none; padding: 10px 20px; border-radius: 12px; font-weight: 600; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: transform var(--transition-fast); z-index: 50; }
+        .btn-premium:hover { transform: scale(1.05); }
+
+        @media print {
+            html, body { background: white !important; color: black !important; height: auto !important; overflow: visible !important; }
+            .navbar { display: none !important; }
+            .app-shell { display: block !important; height: auto !important; overflow: visible !important; }
+            .main-wrapper { display: block !important; height: auto !important; overflow: visible !important; }
+            .scroll-area { display: block !important; height: auto !important; overflow: visible !important; }
+            .glass-panel { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; background: white !important; -webkit-print-color-adjust: exact; margin-bottom: 24px !important; }
+            .dashboard-container { display: grid !important; max-width: 100% !important; padding: 0 !important; gap: 24px !important; grid-template-columns: 1fr 300px !important; }
+            .right-col { display: flex !important; }
+            .chart-grid { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+            .plotly-graph-div { filter: invert(1) hue-rotate(180deg) brightness(1.1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        
+        <!-- MAIN WRAPPER -->
+        <div class="main-wrapper">
+            
+            <!-- NAVBAR -->
+            <header class="navbar">
+                <div class="nav-left" style="display:flex; align-items:center; gap:24px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--purple)); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--primary-glow); flex-shrink: 0;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        </div>
+                        <div>
+                            <div style="font-family: var(--font-display); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: var(--text-1); line-height: 1;">PlanPro</div>
+                            <div style="font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; font-weight:600;">Production Planning & Cost Analysis Dashboard</div>
+                        </div>
+                    </div>
+                    
+                    <div class="breadcrumb" style="border-left: 1px solid var(--border-color); padding-left: 24px; height: 32px; display:flex; align-items:center;">
+                        <span id="header-date"></span> <span style="margin:0 8px; color:var(--text-3);">/</span>
+                        <span class="current">CNC Milling Machine</span>
+                    </div>
+                </div>
+                
+                <div class="nav-right" style="display:flex; align-items:center; gap:16px;">
+                    <button id="theme-btn" class="icon-btn" title="Toggle Theme"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg></button>
+                    <div id="user-profile" style="display:flex; align-items:center; gap:12px; background:var(--bg-surface); border:1px solid var(--border-color); padding:4px 16px 4px 4px; border-radius:100px; cursor:pointer;" title="Click to change name">
+                        <div id="user-initials" style="width:32px; height:32px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:12px;">JD</div>
+                        <span id="user-name" style="font-size:13px; font-weight:600;">J. Doe</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- SCROLL AREA -->
+            <div class="scroll-area">
+                <div class="dashboard-container">
+                    
+                    <!-- LEFT COLUMN (Main Data) -->
+                    <div class="main-col">
+                        
+                        <!-- Header -->
+                        <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                            <div>
+                                <h1 style="font-family: var(--font-display); font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px;">Executive Analytics</h1>
+                                <div style="display:flex; gap: 16px; color: var(--text-2); font-size: 14px; font-weight: 500;">
+                                    <span>Afternoon Shift (8h)</span><span>•</span><span id="datetime"></span>
+                                </div>
+                            </div>
+                            
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; backdrop-filter: var(--glass-blur); display: flex; gap: 16px; align-items: center;">
+        <div style="flex-shrink: 0;">
+            <div style="font-size: 10px; font-weight: 600; color: var(--text-1); text-transform: uppercase; margin-bottom: 6px;">August 2026</div>
+            <table style="border-collapse: collapse; font-family: var(--font-data);">
+                <thead>
+                    <tr>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">Mo</th>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">Tu</th>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">We</th>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">Th</th>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">Fr</th>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">Sa</th>
+                        <th style="font-size: 9px; color: var(--text-3); font-weight: normal; padding-bottom: 4px;">Su</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">1</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">2</div></td></tr><tr><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">3</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">4</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">5</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">6</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">7</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">8</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">9</div></td></tr><tr><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">10</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">11</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">12</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">13</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">14</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">15</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">16</div></td></tr><tr><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">17</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">18</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">19</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">20</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">21</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">22</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">23</div></td></tr><tr><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">24</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; color: var(--text-2);">25</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; background: var(--primary); color: white; font-weight: bold; box-shadow: 0 0 10px var(--primary-glow);">26</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; background: rgba(59, 130, 246, 0.2); color: var(--text-1);">27</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; background: rgba(59, 130, 246, 0.2); color: var(--text-1);">28</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; background: rgba(59, 130, 246, 0.2); color: var(--text-1);">29</div></td><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; background: rgba(59, 130, 246, 0.2); color: var(--text-1);">30</div></td></tr><tr><td style="padding: 2px; text-align: center;"><div style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 4px; margin: auto; background: rgba(59, 130, 246, 0.2); color: var(--text-1);">31</div></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td><td style="padding: 2px;"></td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div style="border-left: 1px dashed var(--border-color); padding-left: 16px; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
+            <div>
+                <div style="display:flex; align-items:center; gap:6px; font-size: 9px; color: var(--text-2); text-transform: uppercase; margin-bottom:2px;">
+                    <div style="width:8px; height:8px; border-radius:2px; background:var(--primary);"></div>
+                    Commence
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-1);">Aug 26, 2026</div>
+            </div>
+            <div>
+                <div style="display:flex; align-items:center; gap:6px; font-size: 9px; color: var(--text-2); text-transform: uppercase; margin-bottom:2px;">
+                    <div style="width:8px; height:8px; border-radius:2px; background:var(--success);"></div>
+                    Delivery
+                </div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-1);">Sep 12, 2026</div>
+            </div>
+        </div>
+    </div>
+    
+                        </div>
+
+                        <!-- 1. KPI GRID -->
+                        <div class="kpi-grid">
+                            <div class="glass-panel kpi-card" style="border-top: 4px solid var(--primary);">
+                                <div class="kpi-top">
+                                    <div class="kpi-label">Target Volume</div>
+                                </div>
+                                <div class="kpi-value num-counter" data-target="4500">0</div>
+                                <div style="font-size:13px; color:var(--text-2);">Capacity: 280/day</div>
+                            </div>
+                            
+                            <div class="glass-panel kpi-card" style="border-top: 4px solid var(--success);">
+                                <div class="kpi-top">
+                                    <div class="kpi-label">Production Days</div>
+                                </div>
+                                <div class="kpi-value num-counter" data-target="17">0</div>
+                                <div style="font-size:13px; color:var(--text-2);">Standard Shift Schedule</div>
+                            </div>
+
+                            <div class="glass-panel kpi-card" style="border-top: 4px solid var(--warning);">
+                                <div class="kpi-top">
+                                    <div class="kpi-label">Total Capital</div>
+                                </div>
+                                <div class="kpi-value">₹<span class="num-counter" data-target="265200">0</span></div>
+                                <div style="font-size:13px; color:var(--text-2);">₹15,600 Burn/Day</div>
+                            </div>
+
+                            <div class="glass-panel kpi-card" style="border-top: 4px solid var(--purple);">
+                                <div class="kpi-top">
+                                    <div class="kpi-label">Unit Economics</div>
+                                </div>
+                                <div class="kpi-value">₹<span class="num-counter" data-target="58.93333333333333">0</span></div>
+                                <div style="font-size:13px; color:var(--text-2);">Cost per Unit</div>
+                            </div>
+                        </div>
+
+                        
+    <div class="glass-panel" style="margin-bottom: 24px;">
+        <div class="panel-header" style="margin-bottom: 16px;">
+            <div class="panel-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                Shift Comparison Matrix (For CNC Milling Machine)
+            </div>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+            <thead>
+                <tr>
+                    <th style="padding: 12px; color: var(--text-2); font-weight: 600; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid var(--border-color);">Shift</th>
+                    <th style="padding: 12px; color: var(--text-2); font-weight: 600; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid var(--border-color);">Output / Day</th>
+                    <th style="padding: 12px; color: var(--text-2); font-weight: 600; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid var(--border-color);">Cost / Day</th>
+                    <th style="padding: 12px; color: var(--text-2); font-weight: 600; text-transform: uppercase; font-size: 11px; border-bottom: 1px solid var(--border-color);">Status (14-Day)</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+        <tr style="border-left: 3px solid transparent; border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 12px; font-weight: 600;">Morning Shift </td>
+            <td style="padding: 12px; font-family: var(--font-data);">280 units</td>
+            <td style="padding: 12px; font-family: var(--font-data);">₹15,600</td>
+            <td style="padding: 12px;"><span style="color:var(--warning); font-weight:600;">OT Required</span></td>
+        </tr>
+        
+        <tr style="background: rgba(59, 130, 246, 0.1); border-left: 3px solid var(--primary); border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 12px; font-weight: 600;">Afternoon Shift </td>
+            <td style="padding: 12px; font-family: var(--font-data);">280 units</td>
+            <td style="padding: 12px; font-family: var(--font-data);">₹15,600</td>
+            <td style="padding: 12px;"><span style="color:var(--primary); font-weight:600;">Selected</span></td>
+        </tr>
+        
+        <tr style="border-left: 3px solid transparent; border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 12px; font-weight: 600;">Night Shift </td>
+            <td style="padding: 12px; font-family: var(--font-data);">280 units</td>
+            <td style="padding: 12px; font-family: var(--font-data);">₹15,680</td>
+            <td style="padding: 12px;"><span style="color:var(--warning); font-weight:600;">OT Required</span></td>
+        </tr>
+        
+        <tr style="border-left: 3px solid transparent; border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 12px; font-weight: 600;">Double Shift </td>
+            <td style="padding: 12px; font-family: var(--font-data);">560 units</td>
+            <td style="padding: 12px; font-family: var(--font-data);">₹43,200</td>
+            <td style="padding: 12px;"><span style="color:var(--success); font-weight:600;">Feasible</span></td>
+        </tr>
+        
+        <tr style="border-left: 3px solid transparent; border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 12px; font-weight: 600;">Half Day Shift </td>
+            <td style="padding: 12px; font-family: var(--font-data);">140 units</td>
+            <td style="padding: 12px; font-family: var(--font-data);">₹6,600</td>
+            <td style="padding: 12px;"><span style="color:var(--warning); font-weight:600;">OT Required</span></td>
+        </tr>
+        
+        <tr style="border-left: 3px solid transparent; border-bottom: 1px solid var(--border-color);">
+            <td style="padding: 12px; font-weight: 600;">Weekend Shift </td>
+            <td style="padding: 12px; font-family: var(--font-data);">350 units</td>
+            <td style="padding: 12px; font-family: var(--font-data);">₹24,000</td>
+            <td style="padding: 12px;"><span style="color:var(--success); font-weight:600;">Feasible</span></td>
+        </tr>
+        
+            </tbody>
+        </table>
+    </div>
+    
+                        
+                        <!-- 2. ANALYTICS CHARTS -->
+                        <div class="chart-grid">
+                            <!-- Progress Line -->
+                            <div class="glass-panel" style="display:flex; flex-direction:column; min-height:380px;">
+                                <div class="panel-header">
+                                    <div class="panel-title">Production Velocity Trajectory</div>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <div style="height:100%; width:100%;">                            <div id="38353ca3-eeed-42f5-9adf-b421ee0a6ce6" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("38353ca3-eeed-42f5-9adf-b421ee0a6ce6")) {                    Plotly.newPlot(                        "38353ca3-eeed-42f5-9adf-b421ee0a6ce6",                        [{"fill":"tozeroy","fillcolor":"rgba(6,182,212,0.06)","hovertemplate":"Day %{x}\u003cbr\u003eUnits: %{y:,.0f}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#06b6d4","shape":"spline","width":3},"marker":{"color":"#06b6d4","line":{"color":"#0A0F1E","width":2},"size":7},"mode":"lines+markers","name":"Units Produced","x":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17],"y":[0,280,560,840,1120,1400,1680,1960,2240,2520,2800,3080,3360,3640,3920,4200,4480,4500],"type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"fillcolor":"rgba(16,185,129,0.05)","line":{"width":0},"type":"rect","x0":0,"x1":1,"xref":"x domain","y0":4050.0,"y1":4500,"yref":"y"},{"line":{"color":"#EF4444","dash":"dot","width":1.5},"type":"line","x0":0,"x1":1,"xref":"x domain","y0":4500,"y1":4500,"yref":"y"}],"annotations":[{"font":{"color":"#EF4444","size":11},"showarrow":false,"text":"Target: 4,500","x":1,"xanchor":"right","xref":"x domain","y":4500,"yanchor":"bottom","yref":"y"}],"margin":{"t":20,"b":30,"l":50,"r":60},"xaxis":{"tickfont":{"color":"#64748B"},"title":{"text":"Production Day"},"showgrid":false,"color":"#475569","zeroline":false},"yaxis":{"tickfont":{"color":"#64748B"},"title":{"text":"Units"},"showgrid":true,"gridcolor":"#1E293B","color":"#475569","zeroline":false,"tickformat":","},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","showlegend":false,"hovermode":"x unified"},                        {"responsive": true}                    )                };            </script>        </div>
+                                </div>
+                            </div>
+
+                            <!-- Cost Donut & Breakdown -->
+                            <div class="glass-panel" style="display:flex; flex-direction:column; min-height:380px;">
+                                <div class="panel-header">
+                                    <div class="panel-title">Cost Distribution & Breakdown</div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; align-items: center;">
+                                    <div class="chart-wrapper" id="donut-wrapper" style="min-height: 200px;">
+                                        <div style="height:100%; width:100%;">                            <div id="49a551dd-b71f-41b2-9078-3115b5415a4e" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("49a551dd-b71f-41b2-9078-3115b5415a4e")) {                    Plotly.newPlot(                        "49a551dd-b71f-41b2-9078-3115b5415a4e",                        [{"hole":0.65,"hovertemplate":"\u003cb\u003e%{label}\u003c\u002fb\u003e\u003cbr\u003e\u20b9%{value:,.0f}\u003cextra\u003e\u003c\u002fextra\u003e","labels":["Labour Cost","Machine Cost"],"marker":{"colors":["#6366f1","#06b6d4"],"line":{"color":"#0A0F1E","width":4}},"textfont":{"color":"white","size":12},"textinfo":"label+percent","values":[102000,163200],"type":"pie"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"margin":{"t":10,"b":10,"l":10,"r":10},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","showlegend":false,"annotations":[{"font":{"color":"white","size":14},"showarrow":false,"text":"\u20b9265,200\u003cbr\u003e\u003cspan style='font-size:10px'\u003eTotal\u003c\u002fspan\u003e","x":0.5,"y":0.5}]},                        {"responsive": true}                    )                };            </script>        </div>
+                                    </div>
+                                    
+    <div style="display:flex; flex-direction:column; justify-content:center; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px; font-family: var(--font-data); height: 100%;">
+        <div style="display:flex; justify-content:space-between; margin-bottom: 12px; color: var(--text-2); font-size: 13px;">
+            <span>Machine Cost</span>
+            <span>₹163,200</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom: 12px; color: var(--text-2); font-size: 13px;">
+            <span>Labour Cost</span>
+            <span>₹102,000</span>
+        </div>
+        <div style="border-top: 1px dashed var(--border-color); margin-bottom: 12px;"></div>
+        <div style="display:flex; justify-content:space-between; font-weight: 700; font-size: 16px; color: var(--text-1);">
+            <span>TOTAL COST</span>
+            <span>₹265,200</span>
+        </div>
+    </div>
+    
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Cost Area Chart -->
+                        <div class="glass-panel" style="display:flex; flex-direction:column; min-height:350px;">
+                            <div class="panel-header">
+                                <div class="panel-title">Cumulative Production Cost</div>
+                            </div>
+                            <div class="chart-wrapper">
+                                <div style="height:100%; width:100%;">                            <div id="058c1465-300e-4871-9e7a-ccc2e5191080" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("058c1465-300e-4871-9e7a-ccc2e5191080")) {                    Plotly.newPlot(                        "058c1465-300e-4871-9e7a-ccc2e5191080",                        [{"fill":"tozeroy","fillcolor":"rgba(99,102,241,0.08)","hovertemplate":"Day %{x}\u003cbr\u003eCost: \u20b9%{y:,.0f}\u003cextra\u003e\u003c\u002fextra\u003e","line":{"color":"#6366f1","width":2.5},"mode":"lines","x":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17],"y":[0,15600,31200,46800,62400,78000,93600,109200,124800,140400,156000,171600,187200,202800,218400,234000,249600,265200],"type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"margin":{"t":10,"b":30,"l":50,"r":10},"xaxis":{"tickfont":{"color":"#64748B"},"title":{"text":"Day"},"showgrid":false,"color":"#475569","zeroline":false},"yaxis":{"tickfont":{"color":"#64748B"},"showgrid":true,"gridcolor":"#1E293B","color":"#475569","zeroline":false,"tickprefix":"\u20b9","tickformat":",.0f"},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","hovermode":"x unified"},                        {"responsive": true}                    )                };            </script>        </div>
+                            </div>
+                        </div>
+
+                        <!-- EXTENDED CHARTS ROW -->
+                        <div class="chart-grid">
+                            <div class="glass-panel" style="display:flex; flex-direction:column; min-height:300px;">
+                                <div class="panel-header">
+                                    <div class="panel-title">Shift Utilization</div>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <div style="height:300px; width:100%;">                            <div id="56d7be64-58d5-4bd8-bfc8-8c4b1c11a90d" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("56d7be64-58d5-4bd8-bfc8-8c4b1c11a90d")) {                    Plotly.newPlot(                        "56d7be64-58d5-4bd8-bfc8-8c4b1c11a90d",                        [{"gauge":{"axis":{"range":[0,100],"visible":false},"bar":{"color":"#06b6d4"},"bgcolor":"rgba(255,255,255,0.05)","steps":[{"color":"rgba(239,68,68,0.2)","range":[0,50]},{"color":"rgba(245,158,11,0.2)","range":[50,80]},{"color":"rgba(16,185,129,0.2)","range":[80,100]}]},"mode":"gauge+number","number":{"font":{"color":"#06b6d4","size":40},"suffix":"%"},"value":100,"type":"indicator"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"margin":{"t":30,"b":20,"l":20,"r":20},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","height":300},                        {"responsive": true}                    )                };            </script>        </div>
+                                </div>
+                            </div>
+                            <div class="glass-panel" style="display:flex; flex-direction:column; min-height:300px;">
+                                <div class="panel-header">
+                                    <div class="panel-title">Daily Operations Breakdown</div>
+                                </div>
+                                <div class="chart-wrapper">
+                                    <div style="height:300px; width:100%;">                            <div id="3c216081-85d6-475c-9695-eeb11c9651f6" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("3c216081-85d6-475c-9695-eeb11c9651f6")) {                    Plotly.newPlot(                        "3c216081-85d6-475c-9695-eeb11c9651f6",                        [{"hovertemplate":"\u003cb\u003e%{y}\u003c\u002fb\u003e\u003cbr\u003e\u20b9%{x:,.0f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":["#6366f1","#06b6d4"],"line":{"color":"#0A0F1E","width":2}},"orientation":"h","x":[6000,9600],"y":["Labour","Machine"],"type":"bar"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"margin":{"t":10,"b":30,"l":70,"r":20},"xaxis":{"showgrid":true,"gridcolor":"#1E293B","color":"#475569","zeroline":false,"tickprefix":"\u20b9"},"yaxis":{"tickfont":{"size":13},"showgrid":false,"color":"#94A3B8"},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","height":300},                        {"responsive": true}                    )                };            </script>        </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+        <!-- OVERTIME SECTION -->
+        <div class="glass-panel" style="margin-top: 32px; border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 30px rgba(239, 68, 68, 0.05);">
+            <div class="panel-header" style="margin-bottom: 24px;">
+                <div class="panel-title" style="color: var(--danger); font-size: 20px;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:8px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                    Overtime Alert & Analysis
+                </div>
+            </div>
+            
+            <div class="chart-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    
+                    <!-- WHY OVERTIME -->
+                    <div style="background:rgba(239, 68, 68, 0.05); padding:16px; border-radius:12px; border:1px solid rgba(239, 68, 68, 0.15);">
+                        <h4 style="color:var(--text-1); margin-bottom:8px; font-size:15px;">Why is Overtime Required?</h4>
+                        <p style="color:var(--text-2); font-size:14px; line-height:1.6;">
+                            Target volume of <b>4,500 units</b> requires <b>9.18 hours/day</b> of machine time. This exceeds the normal 8-hour shift capacity by <b>1.18 hours/day</b>.
+                        </p>
+                    </div>
+                    
+                    <!-- COSTS -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                        <div style="background:var(--bg-surface-hover); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
+                            <div style="font-size:12px; color:var(--text-3); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Extra Machine Hours</div>
+                            <div style="font-family:var(--font-data); font-size:24px; font-weight:700; color:var(--danger);">16.57 hrs</div>
+                        </div>
+                        <div style="background:var(--bg-surface-hover); padding:16px; border-radius:12px; border:1px solid var(--border-color);">
+                            <div style="font-size:12px; color:var(--text-3); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Overtime Cost</div>
+                            <div style="font-family:var(--font-data); font-size:24px; font-weight:700; color:var(--danger);">₹38,529</div>
+                            <div style="font-size:11px; color:var(--text-3); margin-top:8px; line-height:1.4;">Machine OT Cost = OT Hours × Machine Rate<br>Labour OT Cost = OT Hours × Workers × Labour Rate × 1.5</div>
+                        </div>
+                    </div>
+                    
+                    <!-- RESOLUTION -->
+                    <div style="background:rgba(16, 185, 129, 0.05); padding:16px; border-radius:12px; border:1px solid rgba(16, 185, 129, 0.15);">
+                        <h4 style="color:var(--success); margin-bottom:8px; font-size:15px;">How to Avoid This Cost?</h4>
+                        <ul style="color:var(--text-2); font-size:13px; line-height:1.7; padding-left:20px; margin:0;">
+                            <li><b>Increase Shift Length:</b> Deploy a longer shift (currently 8h/day).</li>
+                            <li><b>Upgrade Machinery:</b> Use a machine capable of at least <b>40 units/hr</b>.</li>
+                            <li><b>Parallel Production:</b> Offload units to a secondary machine.</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; background:var(--bg-surface-hover); border-radius:16px; border: 1px solid var(--border-color); padding: 16px;">
+                    <h4 style="margin-bottom:16px; color:var(--text-2); font-size:14px; text-transform:uppercase; letter-spacing:0.5px;">Overtime Cost Breakdown</h4>
+                    <div class="chart-wrapper" style="width:100%; min-height:220px; position:relative;">
+                        <div style="height:200px; width:100%;">                            <div id="15646ae5-10fc-457b-9081-c7f99a7de8f2" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("15646ae5-10fc-457b-9081-c7f99a7de8f2")) {                    Plotly.newPlot(                        "15646ae5-10fc-457b-9081-c7f99a7de8f2",                        [{"hole":0.6,"hovertemplate":"\u003cb\u003e%{label}\u003c\u002fb\u003e\u003cbr\u003e\u20b9%{value:,.0f}\u003cextra\u003e\u003c\u002fextra\u003e","labels":["Machine OT Cost","Labour OT Cost (1.5x)"],"marker":{"colors":["#06b6d4","#f43f5e"],"line":{"color":"#0A0F1E","width":3}},"textinfo":"label+percent","values":[19885.7142857143,18642.85714285716],"type":"pie"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"margin":{"t":10,"b":10,"l":10,"r":10},"paper_bgcolor":"rgba(0,0,0,0)","plot_bgcolor":"rgba(0,0,0,0)","showlegend":false,"height":200},                        {"responsive": true}                    )                };            </script>        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+
+                    </div>
+
+                    <!-- RIGHT COLUMN (Intelligence) -->
+                    <div class="right-col">
+                        
+                        <!-- Factory Status -->
+                        <div class="glass-panel">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                <div class="kpi-label">Machine Health</div>
+                                <span style="font-size:12px; font-weight:600; color:var(--success); background:rgba(16,185,129,0.1); padding:4px 10px; border-radius:100px;">Optimal</span>
+                            </div>
+                            <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:8px;">CNC Milling Machine</h3>
+                            <p style="font-size:13px; color:var(--text-2); margin-bottom: 16px;">Telemetry indicates nominal operation. Vibration and thermal metrics normal.</p>
+                            
+                            <div style="margin-top: 16px; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 8px; border-left: 3px solid var(--primary);">
+        <div style="font-size:11px; color:var(--text-3); text-transform:uppercase; margin-bottom:12px; font-weight:600;">Hardware Specifications</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+            <span style="color:var(--text-2);">Asset Class</span><span style="color:var(--text-1); font-weight:500;">Standard Industrial</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+            <span style="color:var(--text-2);">Power Draw</span><span style="color:var(--text-1); font-family:var(--font-data);">N/A</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+            <span style="color:var(--text-2);">Maintenance</span><span style="color:var(--text-1);">Standard Interval</span>
+        </div>
+        <div style="border-top:1px dashed var(--border-color); margin:12px 0;"></div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+            <span style="color:var(--text-2);">Operational Cost</span><span style="font-family:var(--font-data); font-weight:600;">₹1200/hr</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:13px;">
+            <span style="color:var(--text-2);">Throughput Max</span><span style="font-family:var(--font-data); font-weight:600;">35/hr</span>
+        </div>
+    </div>
+                        </div>
+
+                        <!-- 7-Day Deadline Assessment -->
+                        <div class="glass-panel">
+                            <div class="kpi-label" style="margin-bottom:16px;">Deadline Risk (14-Day)</div>
+                            <div style="background:rgba(245, 158, 11, 0.05); border:1px solid rgba(245, 158, 11, 0.2); border-radius:12px; padding:16px; position:relative; z-index:1;"><h4 style="font-size:14px; font-weight:600; margin-bottom:4px; color:var(--text-1);">Overtime Required</h4><p style="font-size:13px; color:var(--warning); line-height:1.4;">Target exceeds 14-day capacity. Authorization needed for ₹38,529 overtime budget.<br><br><b>Assumption:</b><br>Machine OT Cost = OT Hours × Machine Rate<br>Labour OT Cost = OT Hours × Workers × Labour Rate × 1.5</p></div>
+                        </div>
+
+                        <!-- AI Recommendations -->
+                        <div class="glass-panel">
+                            <div class="kpi-label" style="margin-bottom:16px;">AI Insights</div>
+                            
+                            <div class="ai-card">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                                <div>
+                                    <h5 style="font-size:13px; font-weight:600; margin-bottom:4px;">Energy Optimization</h5>
+                                    <p style="font-size:12px; color:var(--text-3); line-height:1.4;">Night shift deployment reduces HVAC overhead by 12%.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="ai-card">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+                                <div>
+                                    <h5 style="font-size:13px; font-weight:600; margin-bottom:4px;">Predictive Maintenance</h5>
+                                    <p style="font-size:12px; color:var(--text-3); line-height:1.4;">Lubrication required after 120hrs of operation.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Timeline -->
+                        <div class="glass-panel">
+                            <div class="kpi-label" style="margin-bottom:16px;">Execution Timeline</div>
+                            <div class="v-timeline">
+                                <div class="tl-node">
+                                    <div class="tl-dot" style="background:var(--success); border-color:var(--success); box-shadow:0 0 10px var(--success-glow);"></div>
+                                    <div><h5 style="font-size:14px; font-weight:600; margin-bottom:4px;">System Configured</h5><p style="font-size:13px; color:var(--text-3);">Target: 4,500 units.</p></div>
+                                </div>
+                                <div class="tl-node">
+                                    <div class="tl-dot" style="border-color:var(--primary);"></div>
+                                    <div><h5 style="font-size:14px; font-weight:600; color:var(--primary); margin-bottom:4px;">Active Run</h5><p style="font-size:13px; color:var(--text-3);">Velocity: 280/day.</p></div>
+                                </div>
+                                <div class="tl-node" style="opacity:0.5;">
+                                    <div class="tl-dot"></div>
+                                    <div><h5 style="font-size:14px; font-weight:600; margin-bottom:4px;">Target Completion</h5><p style="font-size:13px; color:var(--text-3);">Day 17</p></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Assumptions -->
+                        <div class="glass-panel" style="margin-top: 24px; background: rgba(0,0,0,0.3);">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                <div class="kpi-label" style="margin:0; font-size:12px;">System Assumptions</div>
+                            </div>
+                            <ul style="color:var(--text-2); font-size:12px; line-height:1.6; padding-left:16px; margin:0;">
+                                <li style="margin-bottom:4px;">Calculations assume 100% machine uptime (0% maintenance delay).</li>
+                                <li style="margin-bottom:4px;">Labour costs reflect standard base pay, excluding contractor premiums.</li>
+                                                                <li style="margin-bottom:4px;">Costing Assumption: Each scheduled production day is charged as a complete shift, including the final partial-production day.</li>
+                                <li style="margin-bottom:4px;">Production Plan Constraint: The system is designed to manage a single active production plan at a time. Each production plan contains one selected machine, one selected shift, and one target quantity. A new plan can replace the existing plan only after user confirmation.</li>
+                                <li>Overtime budgets exceeding ₹100,000 require Level 2 management sign-off.</li>
+                            </ul>
+                            <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border-color); font-size:10px; color:var(--text-3); text-align:center; font-family:var(--font-data);">
+                                Generated by PlanPro Core Systems
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // User Profile Name Management
+            const userProfile = document.getElementById('user-profile');
+            const userName = document.getElementById('user-name');
+            const userInitials = document.getElementById('user-initials');
+
+            const savedName = localStorage.getItem('planpro_username') || 'J. Doe';
+            const updateName = (name) => {
+                userName.innerText = name;
+                const words = name.trim().split(' ');
+                let initials = words[0][0].toUpperCase();
+                if(words.length > 1) initials += words[words.length-1][0].toUpperCase();
+                userInitials.innerText = initials;
+            };
+            updateName(savedName);
+
+            userProfile.addEventListener('click', () => {
+                const newName = prompt("Enter your name:", userName.innerText);
+                if(newName && newName.trim().length > 0) {
+                    localStorage.setItem('planpro_username', newName.trim());
+                    updateName(newName.trim());
+                }
+            });
+
+
+
+            // 1. Plotly Post-Processing Engine
+            const fixPlotlyCharts = () => {
+                const charts = document.querySelectorAll('.plotly-graph-div');
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                
+                const rootStyle = getComputedStyle(document.documentElement);
+                const textColor = rootStyle.getPropertyValue('--chart-text').trim() || '#94a3b8';
+                const gridColor = rootStyle.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.05)';
+                
+                charts.forEach(chart => {
+                    if (!chart.data || !chart.layout) return;
+                    
+                    const isPie = chart.data[0].type === 'pie';
+                    const isIndicator = chart.data[0].type === 'indicator';
+                    
+                    const layoutUpdate = {
+                        'font.family': 'Inter, sans-serif',
+                        'font.color': textColor,
+                        'paper_bgcolor': 'rgba(0,0,0,0)',
+                        'plot_bgcolor': 'rgba(0,0,0,0)',
+                        'hoverlabel.bgcolor': isDark ? '#0f172a' : '#ffffff',
+                        'hoverlabel.bordercolor': isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                        'hoverlabel.font.family': 'Inter, sans-serif',
+                        'hoverlabel.font.size': 13,
+                        'autosize': true
+                    };
+
+                    if (isPie) {
+                        layoutUpdate['showlegend'] = true;
+                        layoutUpdate['legend.orientation'] = 'h';
+                        layoutUpdate['legend.y'] = -0.1;
+                        layoutUpdate['legend.x'] = 0.5;
+                        layoutUpdate['legend.xanchor'] = 'center';
+                        layoutUpdate['margin.t'] = 20;
+                        layoutUpdate['margin.b'] = 40;
+                        layoutUpdate['margin.l'] = 20;
+                        layoutUpdate['margin.r'] = 20;
+                        
+                        Plotly.restyle(chart, {
+                            'textinfo': 'percent',
+                            'hoverinfo': 'label+value+percent'
+                        });
+                        
+                        if (chart.layout.annotations && chart.layout.annotations.length > 0) {
+                            const ann = chart.layout.annotations[0];
+                            ann.font.family = 'Plus Jakarta Sans, sans-serif';
+                            ann.font.color = isDark ? '#f9fafb' : '#0f172a';
+                            layoutUpdate['annotations'] = [ann];
+                        }
+                    } else if (isIndicator) {
+                        layoutUpdate['margin.t'] = 40;
+                        layoutUpdate['margin.b'] = 20;
+                        layoutUpdate['margin.l'] = 20;
+                        layoutUpdate['margin.r'] = 20;
+                    } else {
+                        layoutUpdate['margin.t'] = 20;
+                        layoutUpdate['margin.b'] = 40;
+                        layoutUpdate['margin.l'] = 60;
+                        layoutUpdate['margin.r'] = 20;
+                        layoutUpdate['xaxis.showgrid'] = false;
+                        layoutUpdate['yaxis.showgrid'] = true;
+                        layoutUpdate['yaxis.gridcolor'] = gridColor;
+                        layoutUpdate['xaxis.color'] = textColor;
+                        layoutUpdate['yaxis.color'] = textColor;
+                    }
+
+                    Plotly.relayout(chart, layoutUpdate);
+                    Plotly.Plots.resize(chart);
+                });
+            };
+
+            setTimeout(fixPlotlyCharts, 100);
+
+            window.addEventListener('resize', () => {
+                document.querySelectorAll('.plotly-graph-div').forEach(chart => {
+                    if(chart.layout) Plotly.Plots.resize(chart);
+                });
+            });
+
+            const updateTime = () => {
+                const now = new Date();
+                document.getElementById('datetime').innerText = now.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                document.getElementById('header-date').innerText = now.toLocaleString('en-US', { weekday: 'short', month: 'long', day: 'numeric' });
+            };
+            updateTime(); setInterval(updateTime, 1000);
+
+            document.querySelector('.scroll-area').addEventListener('mousemove', e => {
+                document.querySelectorAll('.glass-panel').forEach(card => {
+                    const rect = card.getBoundingClientRect();
+                    card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                    card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                });
+            });
+
+            document.querySelectorAll('.num-counter').forEach(counter => {
+                const target = parseFloat(counter.getAttribute('data-target'));
+                if (isNaN(target)) return;
+                let startTime = null;
+                const formatNum = num => num % 1 !== 0 ? num.toFixed(2) : Math.floor(num).toLocaleString('en-US');
+                const step = (timestamp) => {
+                    if (!startTime) startTime = timestamp;
+                    const progress = Math.min((timestamp - startTime) / 2000, 1);
+                    const ease = 1 - Math.pow(1 - progress, 4); 
+                    counter.innerText = formatNum(target * ease);
+                    if (progress < 1) requestAnimationFrame(step);
+                    else counter.innerText = formatNum(target);
+                };
+                requestAnimationFrame(step);
+            });
+
+            const themeBtn = document.getElementById('theme-btn');
+            let isDark = true;
+            themeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                isDark = !isDark;
+                document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+                setTimeout(fixPlotlyCharts, 50);
+            });
+        });
+    </script>
+</body>
+</html>
