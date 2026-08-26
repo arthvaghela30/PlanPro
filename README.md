@@ -1,4 +1,4 @@
- PlanPro — Production Planning & Costing Dashboard
+# PlanPro — Production Planning & Costing Dashboard
 
 A web-based production planning tool for modeling machines, shifts, and production runs, with cost analysis and deadline feasibility checks, built with a clean dark industrial aesthetic.
 
